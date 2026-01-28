@@ -1,0 +1,7 @@
+Time(s),Event,Evidence
+5,Suspicious: Face Missing,face_missing_5.jpg
+10,Suspicious: Face Missing,face_missing_10.jpg
+13,Malpractice: Multiple Faces,multiple_faces_13.jpg
+14,Malpractice: Multiple Faces,multiple_faces_14.jpg
+15,Malpractice: Multiple Faces,multiple_faces_15.jpg
+16,Suspicious: Candidate Replacement,replacement_16.jpg

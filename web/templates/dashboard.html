@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Offline Exam Proctoring</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="app">
+
+    <!-- ===== SIDEBAR ===== -->
+    <aside class="sidebar">
+        <div class="brand">
+            <h2>ProctorAI</h2>
+            <p>Offline Exam Monitoring</p>
+        </div>
+
+        <div class="controls">
+            <input type="file" id="videoFile" accept="video/*">
+            <button onclick="uploadVideo()">Upload Video</button>
+            <button class="primary" onclick="startAnalysis()">Start Analysis</button>
+        </div>
+
+        <div class="status-card">
+            <span class="label">STATUS</span>
+            <span id="statusText" class="status idle">Idle</span>
+        </div>
+    </aside>
+
+    <!-- ===== MAIN ===== -->
+    <main class="main">
+
+        <!-- VIDEO PANEL -->
+        <section class="video-card">
+            <div class="card-header">Live Analysis Feed</div>
+            <div class="video-container">
+                <img id="videoFeed" alt="Live Stream">
+            </div>
+        </section>
+
+        <!-- VIOLATIONS PANEL -->
+        <section class="violations-card">
+            <div class="card-header danger">Detected Violations</div>
+            <ul id="violationList"></ul>
+        </section>
+
+    </main>
+</div>
+
+<script>
+let uploaded = false;
+let poller = null;
+
+/* ---------- STATUS ---------- */
+function setStatus(text, state) {
+    const el = document.getElementById("statusText");
+    el.textContent = text;
+    el.className = "status " + state;
+}
+
+/* ---------- UPLOAD ---------- */
+function uploadVideo() {
+    const file = document.getElementById("videoFile").files[0];
+    if (!file) {
+        alert("Please select a video");
+        return;
+    }
+
+    const fd = new FormData();
+    fd.append("video", file);
+
+    fetch("/upload", { method: "POST", body: fd })
+        .then(() => {
+            uploaded = true;
+            setStatus("Video Uploaded", "idle");
+        });
+}
+
+/* ---------- ANALYZE ---------- */
+function startAnalysis() {
+    if (!uploaded) {
+        alert("Upload a video first");
+        return;
+    }
+
+    fetch("/analyze", { method: "POST" })
+        .then(() => {
+            document.getElementById("videoFeed").src = "/video_feed";
+            setStatus("Analyzing", "running");
+            startPolling();
+        });
+}
+
+/* ---------- POLLING ---------- */
+function startPolling() {
+    if (poller) return;
+
+    poller = setInterval(() => {
+        fetch("/violations")
+            .then(res => res.json())
+            .then(data => {
+                updateStatus(data.status);
+                renderViolations(data.violations);
+            });
+    }, 1000);
+}
+
+function updateStatus(status) {
+    if (status === "Analyzing") setStatus("Analyzing", "running");
+    else if (status === "Completed") setStatus("Completed", "done");
+    else setStatus(status, "idle");
+}
+
+/* ---------- VIOLATIONS (READ-ONLY) ---------- */
+function renderViolations(violations) {
+    const ul = document.getElementById("violationList");
+    ul.innerHTML = "";
+
+    violations.forEach(v => {
+        const li = document.createElement("li");
+
+        if (v.image) {
+            const img = document.createElement("img");
+            img.src = `/static/screenshots/${v.image}`;
+            img.className = "thumb";
+            li.appendChild(img);
+        }
+
+        const ts = document.createElement("span");
+        ts.className = "timestamp";
+        ts.textContent = formatTime(v.time);
+
+        const ev = document.createElement("span");
+        ev.className = "event";
+        ev.textContent = v.event;
+
+        li.appendChild(ts);
+        li.appendChild(ev);
+        ul.appendChild(li);
+    });
+}
+
+/* ---------- TIME FORMAT ---------- */
+function formatTime(sec) {
+    const m = String(Math.floor(sec / 60)).padStart(2, "0");
+    const s = String(sec % 60).padStart(2, "0");
+    return `[${m}:${s}]`;
+}
+</script>
+
+</body>
+</html>
